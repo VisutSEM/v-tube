@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 
 type Props = {
@@ -11,10 +11,6 @@ type Props = {
   thumbnail?: string;
 };
 
-// 1-second silent base64 WAV data URI to keep the mobile OS audio session alive in background
-const SILENT_AUDIO_URI =
-  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-
 export default function YouTubePlayer({
   videoId,
   autoplay = true,
@@ -23,38 +19,7 @@ export default function YouTubePlayer({
   thumbnail,
 }: Props) {
   const [hasError, setHasError] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const playerRef = useRef<any>(null);
-  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Initialize the silent keep-alive audio element for mobile background play
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const audio = new Audio(SILENT_AUDIO_URI);
-      audio.loop = true;
-      audio.volume = 0.001; // Effectively silent, but recognized as active by OS audio session
-      silentAudioRef.current = audio;
-
-      return () => {
-        audio.pause();
-        silentAudioRef.current = null;
-      };
-    }
-  }, []);
-
-  const playKeepAlive = useCallback(() => {
-    if (silentAudioRef.current) {
-      silentAudioRef.current.play().catch(() => {
-        // Autoplay policy may restrict before direct user interaction
-      });
-    }
-  }, []);
-
-  const pauseKeepAlive = useCallback(() => {
-    if (silentAudioRef.current) {
-      silentAudioRef.current.pause();
-    }
-  }, []);
 
   // Sync MediaSession API with mobile lock-screen & notification controls
   useEffect(() => {
@@ -62,7 +27,7 @@ export default function YouTubePlayer({
       navigator.mediaSession.metadata = new MediaMetadata({
         title: title || 'V Tube Video',
         artist: channelName || 'V Tube',
-        album: 'V Tube Background Play',
+        album: 'V Tube',
         artwork: [
           {
             src: thumbnail || '/icon-512.png',
@@ -79,15 +44,21 @@ export default function YouTubePlayer({
 
       // Handle Lock Screen / Notification controls
       navigator.mediaSession.setActionHandler('play', () => {
-        playerRef.current?.playVideo?.();
-        playKeepAlive();
-        setIsPlaying(true);
+        try {
+          playerRef.current?.playVideo?.();
+          navigator.mediaSession.playbackState = 'playing';
+        } catch (e) {
+          console.warn('Playback error', e);
+        }
       });
 
       navigator.mediaSession.setActionHandler('pause', () => {
-        playerRef.current?.pauseVideo?.();
-        pauseKeepAlive();
-        setIsPlaying(false);
+        try {
+          playerRef.current?.pauseVideo?.();
+          navigator.mediaSession.playbackState = 'paused';
+        } catch (e) {
+          console.warn('Pause error', e);
+        }
       });
 
       navigator.mediaSession.setActionHandler('seekto', (details) => {
@@ -108,22 +79,7 @@ export default function YouTubePlayer({
         playerRef.current?.seekTo?.(current + skipTime, true);
       });
     }
-  }, [title, channelName, thumbnail, playKeepAlive, pauseKeepAlive]);
-
-  // Keep mobile audio session active when switching apps or locking phone
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // App minimized or screen locked
-        if (isPlaying) {
-          playKeepAlive();
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isPlaying, playKeepAlive]);
+  }, [title, channelName, thumbnail]);
 
   const onPlayerReady = (event: any) => {
     playerRef.current = event.target;
@@ -131,16 +87,10 @@ export default function YouTubePlayer({
 
   const onPlayerStateChange = (event: any) => {
     // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
-    if (event.data === 1) {
-      setIsPlaying(true);
-      playKeepAlive();
-      if ('mediaSession' in navigator) {
+    if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+      if (event.data === 1) {
         navigator.mediaSession.playbackState = 'playing';
-      }
-    } else if (event.data === 2 || event.data === 0) {
-      setIsPlaying(false);
-      pauseKeepAlive();
-      if ('mediaSession' in navigator) {
+      } else if (event.data === 2 || event.data === 0) {
         navigator.mediaSession.playbackState = 'paused';
       }
     }

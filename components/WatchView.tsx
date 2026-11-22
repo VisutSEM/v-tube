@@ -264,7 +264,7 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
             <div className="mt-3 rounded-2xl bg-[#182234] border border-[#3ea6ff]/40 p-4 text-[#f1f1f1] text-[13px] animate-fade-in shadow-xl">
               <div className="flex items-center justify-between font-bold text-[14px] text-[#3ea6ff] mb-2">
                 <span className="flex items-center gap-2">
-                  <span>🎧</span> Background Audio on Mobile Phone
+                  <span>🎧</span> How to Listen with Phone Screen Turned Off
                 </span>
                 <button
                   onClick={() => setShowBackgroundHelp(false)}
@@ -273,20 +273,36 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
                   ✕
                 </button>
               </div>
-              <p className="text-neutral-300 text-xs mb-2">
-                Listen to music &amp; podcasts while your screen is off or while using other apps:
+              <p className="text-neutral-300 text-xs mb-3">
+                YouTube naturally pauses videos when mobile screens are locked to protect YouTube Premium. Here are the 2 ways to listen in the background:
               </p>
-              <ol className="list-decimal list-inside space-y-1.5 text-neutral-200 leading-relaxed text-xs sm:text-[13px]">
-                <li>
-                  <strong className="text-white">Install as App Shortcut:</strong> In mobile Safari or Chrome, tap <strong>Share</strong> (or <strong>⋮</strong> menu) &gt; <strong>&ldquo;Add to Home Screen&rdquo;</strong>.
-                </li>
-                <li>
-                  <strong className="text-white">Start Playing:</strong> Play this video.
-                </li>
-                <li>
-                  <strong className="text-white">Lock Screen / Switch Apps:</strong> When you lock your phone or switch apps, the <strong>V Tube Lock Screen Widget</strong> will appear. Tap <span className="inline-block bg-white text-black font-bold px-1.5 py-0.2 rounded text-[11px] leading-tight">▶ Play</span> to keep audio playing in the background!
-                </li>
-              </ol>
+
+              <div className="space-y-3">
+                {/* Method 1: Brave Browser */}
+                <div className="rounded-xl bg-[#0f172a] p-3 border border-neutral-700/60">
+                  <div className="flex items-center gap-2 font-bold text-white text-[13px] mb-1">
+                    <span className="bg-[#ff5500] text-white text-[10px] px-1.5 py-0.5 rounded font-extrabold uppercase">
+                      Recommended
+                    </span>
+                    <span>🦁 Use Brave Browser (100% Free &amp; Seamless)</span>
+                  </div>
+                  <p className="text-neutral-300 text-xs leading-relaxed">
+                    Open V-Tube in <strong>Brave Browser</strong> (iOS &amp; Android) ➔ Settings ➔ Media ➔ Turn ON <strong>&ldquo;Background Play&rdquo;</strong>. The sound will <strong>NEVER stop</strong> when you lock your screen or switch apps!
+                  </p>
+                </div>
+
+                {/* Method 2: Lock Screen Play in Chrome / Safari */}
+                <div className="rounded-xl bg-[#0f172a] p-3 border border-neutral-700/60">
+                  <div className="font-bold text-white text-[13px] mb-1">
+                    <span>📱 In Chrome / Safari (Lock Screen Resume)</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-neutral-300 text-xs leading-relaxed">
+                    <li>In browser menu (<strong>aA</strong> in Safari, <strong>⋮</strong> in Chrome), select <strong>&ldquo;Request Desktop Website&rdquo;</strong>.</li>
+                    <li>Play the video, then press the phone power button to lock.</li>
+                    <li>Wake your lock screen / Control Center and tap <strong>▶ Play</strong> on the audio widget to continue listening!</li>
+                  </ol>
+                </div>
+              </div>
             </div>
           )}
 
