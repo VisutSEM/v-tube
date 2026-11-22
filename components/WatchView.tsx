@@ -35,6 +35,7 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
   const [isCommentInputFocused, setIsCommentInputFocused] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
   const [relatedFilter, setRelatedFilter] = useState('All');
+  const [showBackgroundHelp, setShowBackgroundHelp] = useState(false);
 
   // Fetch live YouTube comments if available
   useEffect(() => {
@@ -123,9 +124,15 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left Column: Player, Video info, Description, Comments */}
         <div className="flex-1 min-w-0">
-          {/* Main 16:9 Video Player */}
+          {/* Main 16:9 Video Player with Background Audio Support */}
           <div className="w-full">
-            <YouTubePlayer videoId={video.id} autoplay={true} />
+            <YouTubePlayer
+              videoId={video.id}
+              autoplay={true}
+              title={video.title}
+              channelName={video.channel.name}
+              thumbnail={video.thumbnail}
+            />
           </div>
 
           {/* Video Title */}
@@ -191,6 +198,20 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
                 </button>
               </div>
 
+              {/* Background Audio Button */}
+              <button
+                onClick={() => setShowBackgroundHelp(!showBackgroundHelp)}
+                className={`flex items-center gap-1.5 rounded-full h-9 px-3.5 text-[14px] font-medium transition-colors cursor-pointer ${
+                  showBackgroundHelp
+                    ? 'bg-[#3ea6ff] text-black font-semibold'
+                    : 'bg-[#272727] hover:bg-[#3f3f3f] text-[#f1f1f1]'
+                }`}
+                title="Listen in background when screen is off"
+              >
+                <span>🎧</span>
+                <span>Background</span>
+              </button>
+
               {/* Share button */}
               <button
                 onClick={handleShare}
@@ -237,6 +258,37 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
               </button>
             </div>
           </div>
+
+          {/* Background Audio Guide for Mobile */}
+          {showBackgroundHelp && (
+            <div className="mt-3 rounded-2xl bg-[#182234] border border-[#3ea6ff]/40 p-4 text-[#f1f1f1] text-[13px] animate-fade-in shadow-xl">
+              <div className="flex items-center justify-between font-bold text-[14px] text-[#3ea6ff] mb-2">
+                <span className="flex items-center gap-2">
+                  <span>🎧</span> Background Audio on Mobile Phone
+                </span>
+                <button
+                  onClick={() => setShowBackgroundHelp(false)}
+                  className="text-neutral-400 hover:text-white cursor-pointer px-1 text-sm font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-neutral-300 text-xs mb-2">
+                Listen to music &amp; podcasts while your screen is off or while using other apps:
+              </p>
+              <ol className="list-decimal list-inside space-y-1.5 text-neutral-200 leading-relaxed text-xs sm:text-[13px]">
+                <li>
+                  <strong className="text-white">Install as App Shortcut:</strong> In mobile Safari or Chrome, tap <strong>Share</strong> (or <strong>⋮</strong> menu) &gt; <strong>&ldquo;Add to Home Screen&rdquo;</strong>.
+                </li>
+                <li>
+                  <strong className="text-white">Start Playing:</strong> Play this video.
+                </li>
+                <li>
+                  <strong className="text-white">Lock Screen / Switch Apps:</strong> When you lock your phone or switch apps, the <strong>V Tube Lock Screen Widget</strong> will appear. Tap <span className="inline-block bg-white text-black font-bold px-1.5 py-0.2 rounded text-[11px] leading-tight">▶ Play</span> to keep audio playing in the background!
+                </li>
+              </ol>
+            </div>
+          )}
 
           {/* Description Box */}
           <div
