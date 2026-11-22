@@ -10,6 +10,8 @@ type Props = {
   channelName?: string;
   thumbnail?: string;
   onEnded?: () => void;
+  onNextVideo?: () => void;
+  onPrevVideo?: () => void;
 };
 
 export default function YouTubePlayer({
@@ -19,6 +21,8 @@ export default function YouTubePlayer({
   channelName,
   thumbnail,
   onEnded,
+  onNextVideo,
+  onPrevVideo,
 }: Props) {
   const [hasError, setHasError] = useState(false);
   const playerRef = useRef<any>(null);
@@ -33,6 +37,18 @@ export default function YouTubePlayer({
   useEffect(() => {
     hasEndedRef.current = false;
   }, [videoId]);
+
+  // If player is already initialized and videoId changes, auto-load and play
+  useEffect(() => {
+    if (playerRef.current && autoplay) {
+      try {
+        playerRef.current.loadVideoById?.(videoId);
+        playerRef.current.playVideo?.();
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [videoId, autoplay]);
 
   const handleEnd = useCallback(() => {
     if (hasEndedRef.current) return;
@@ -118,11 +134,31 @@ export default function YouTubePlayer({
         const current = playerRef.current?.getCurrentTime?.() || 0;
         playerRef.current?.seekTo?.(current + skipTime, true);
       });
+
+      if (onNextVideo) {
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          onNextVideo();
+        });
+      }
+
+      if (onPrevVideo) {
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          onPrevVideo();
+        });
+      }
     }
-  }, [title, channelName, thumbnail]);
+  }, [title, channelName, thumbnail, onNextVideo, onPrevVideo]);
 
   const onPlayerReady = (event: any) => {
     playerRef.current = event.target;
+    // Autoplay immediately on 1 click
+    if (autoplay) {
+      try {
+        event.target.playVideo();
+      } catch (e) {
+        console.warn('Autoplay error', e);
+      }
+    }
   };
 
   const onPlayerStateChange = (event: any) => {
@@ -150,11 +186,12 @@ export default function YouTubePlayer({
       autoplay: autoplay ? 1 : 0,
       modestbranding: 1,
       enablejsapi: 1,
+      origin: typeof window !== 'undefined' ? window.location.origin : undefined,
     },
   };
 
   return (
-    <div className="relative w-full aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
+    <div className="group relative w-full aspect-video overflow-hidden rounded-xl bg-black shadow-2xl select-none">
       {!hasError ? (
         <YouTube
           key={videoId}
@@ -176,6 +213,41 @@ export default function YouTubePlayer({
           allowFullScreen
         />
       )}
+
+      {/* On-Screen Navigation Controls: < and > */}
+      <div className="pointer-events-none absolute inset-y-0 inset-x-0 flex items-center justify-between px-3 sm:px-6 z-20">
+        {/* < Previous Video */}
+        {onPrevVideo && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPrevVideo();
+            }}
+            aria-label="Previous video"
+            title="Previous video (<)"
+            className="pointer-events-auto flex h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 shadow-2xl backdrop-blur-md transition-all transform hover:scale-110 active:scale-95 cursor-pointer opacity-80 sm:opacity-0 sm:group-hover:opacity-100"
+          >
+            <span className="text-2xl sm:text-3xl font-bold font-mono -translate-x-0.5 leading-none">‹</span>
+          </button>
+        )}
+
+        {/* > Next Video */}
+        {onNextVideo && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onNextVideo();
+            }}
+            aria-label="Next video"
+            title="Next video (>)"
+            className="pointer-events-auto flex h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 shadow-2xl backdrop-blur-md transition-all transform hover:scale-110 active:scale-95 cursor-pointer opacity-80 sm:opacity-0 sm:group-hover:opacity-100 ml-auto"
+          >
+            <span className="text-2xl sm:text-3xl font-bold font-mono translate-x-0.5 leading-none">›</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

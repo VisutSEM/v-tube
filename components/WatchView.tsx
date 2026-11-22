@@ -103,6 +103,23 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
     setCountdown(2);
   }, [isAutoplay]);
 
+  // Full playlist for seamless next/previous cycling
+  const fullPlaylist = useMemo(() => {
+    return allVideos.length > 1 ? allVideos : VIDEOS;
+  }, [allVideos]);
+
+  const handleNextVideo = useCallback(() => {
+    const idx = fullPlaylist.findIndex((v) => v.id === video.id);
+    const next = idx !== -1 && idx < fullPlaylist.length - 1 ? fullPlaylist[idx + 1] : fullPlaylist[0];
+    if (next) onSelectVideo(next);
+  }, [fullPlaylist, video.id, onSelectVideo]);
+
+  const handlePrevVideo = useCallback(() => {
+    const idx = fullPlaylist.findIndex((v) => v.id === video.id);
+    const prev = idx > 0 ? fullPlaylist[idx - 1] : fullPlaylist[fullPlaylist.length - 1];
+    if (prev) onSelectVideo(prev);
+  }, [fullPlaylist, video.id, onSelectVideo]);
+
   // Countdown timer effect
   useEffect(() => {
     if (countdown === null) return;
@@ -186,6 +203,8 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
               channelName={video.channel.name}
               thumbnail={video.thumbnail}
               onEnded={handleVideoEnded}
+              onNextVideo={handleNextVideo}
+              onPrevVideo={handlePrevVideo}
             />
           </div>
 
