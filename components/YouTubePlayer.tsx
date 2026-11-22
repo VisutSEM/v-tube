@@ -9,6 +9,7 @@ type Props = {
   title?: string;
   channelName?: string;
   thumbnail?: string;
+  onEnded?: () => void;
 };
 
 export default function YouTubePlayer({
@@ -17,6 +18,7 @@ export default function YouTubePlayer({
   title,
   channelName,
   thumbnail,
+  onEnded,
 }: Props) {
   const [hasError, setHasError] = useState(false);
   const playerRef = useRef<any>(null);
@@ -93,6 +95,10 @@ export default function YouTubePlayer({
       } else if (event.data === 2 || event.data === 0) {
         navigator.mediaSession.playbackState = 'paused';
       }
+    }
+
+    if (event.data === 0) {
+      onEnded?.();
     }
   };
 

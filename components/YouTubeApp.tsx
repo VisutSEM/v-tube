@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import CategoryPills from '@/components/CategoryPills';
 import VideoCard from '@/components/VideoCard';
 import WatchView from '@/components/WatchView';
+import HistoryView from '@/components/HistoryView';
 import { VIDEOS, CATEGORIES } from '@/data/videos';
 import { Video } from '@/types';
 import { SearchIcon } from '@/components/Icons';
@@ -15,6 +16,7 @@ export default function YouTubeApp() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [isHistoryView, setIsHistoryView] = useState<boolean>(false);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [submittedSearch, setSubmittedSearch] = useState<string>('');
@@ -51,20 +53,37 @@ export default function YouTubeApp() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const videoId = params.get('v');
+      const view = params.get('view');
       if (videoId) {
         const found = VIDEOS.find((v) => v.id === videoId);
         if (found) {
           setSelectedVideo(found);
         }
+      } else if (view === 'history') {
+        setIsHistoryView(true);
       }
     }
   }, [loadVideos, submittedSearch, activeCategory]);
 
   const handleSelectVideo = (video: Video) => {
     setSelectedVideo(video);
+    setIsHistoryView(false);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.set('v', video.id);
+      url.searchParams.delete('view');
+      window.history.pushState({}, '', url.toString());
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleOpenHistory = () => {
+    setSelectedVideo(null);
+    setIsHistoryView(true);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('v');
+      url.searchParams.set('view', 'history');
       window.history.pushState({}, '', url.toString());
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -72,12 +91,14 @@ export default function YouTubeApp() {
 
   const handleGoHome = () => {
     setSelectedVideo(null);
+    setIsHistoryView(false);
     setSearchQuery('');
     setSubmittedSearch('');
     setActiveCategory('All');
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.delete('v');
+      url.searchParams.delete('view');
       window.history.pushState({}, '', url.toString());
     }
     loadVideos('', 'All');
@@ -88,7 +109,17 @@ export default function YouTubeApp() {
     const query = searchQuery.trim();
     setSubmittedSearch(query);
     setSelectedVideo(null);
+    setIsHistoryView(false);
     loadVideos(query, activeCategory);
+  };
+
+  const handleExecuteSearch = (query: string) => {
+    const trimmed = query.trim();
+    setSearchQuery(trimmed);
+    setSubmittedSearch(trimmed);
+    setSelectedVideo(null);
+    setIsHistoryView(false);
+    loadVideos(trimmed, activeCategory);
   };
 
   const handleClearSearch = () => {
@@ -112,9 +143,11 @@ export default function YouTubeApp() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onSearchSubmit={handleSearchSubmit}
+        onExecuteSearch={handleExecuteSearch}
         onClearSearch={handleClearSearch}
         onToggleSidebar={handleToggleSidebar}
         onGoHome={handleGoHome}
+        onOpenHistory={handleOpenHistory}
       />
 
       <div className="flex">
@@ -127,9 +160,12 @@ export default function YouTubeApp() {
           onSelectCategory={(cat) => {
             setActiveCategory(cat);
             setSelectedVideo(null);
+            setIsHistoryView(false);
             loadVideos(submittedSearch, cat);
           }}
           onGoHome={handleGoHome}
+          onOpenHistory={handleOpenHistory}
+          isHistoryActive={isHistoryView}
           isWatchView={Boolean(selectedVideo)}
           isGuest={true}
         />
@@ -142,6 +178,12 @@ export default function YouTubeApp() {
               video={selectedVideo}
               allVideos={videos}
               onSelectVideo={handleSelectVideo}
+            />
+          ) : isHistoryView ? (
+            /* Watch History View */
+            <HistoryView
+              onSelectVideo={handleSelectVideo}
+              onGoHome={handleGoHome}
             />
           ) : (
             /* Home / Search View */

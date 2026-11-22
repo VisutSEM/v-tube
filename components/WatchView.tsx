@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Video, Comment } from '@/types';
+import { addToWatchHistory } from '@/lib/history';
 import YouTubePlayer from './YouTubePlayer';
 import {
   CheckBadgeIcon,
@@ -36,6 +37,13 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
   const [copiedToast, setCopiedToast] = useState(false);
   const [relatedFilter, setRelatedFilter] = useState('All');
   const [showBackgroundHelp, setShowBackgroundHelp] = useState(false);
+  const [isAutoplay, setIsAutoplay] = useState(true);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  // Automatically record video into Watch History
+  useEffect(() => {
+    addToWatchHistory(video);
+  }, [video]);
 
   // Fetch live YouTube comments if available
   useEffect(() => {
@@ -65,6 +73,29 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
 
   // Filter related videos: exclude current video
   const upNextVideos = allVideos.filter((v) => v.id !== video.id);
+
+  // Handle Autoplay when current video finishes
+  const handleVideoEnded = useCallback(() => {
+    if (isAutoplay && upNextVideos.length > 0) {
+      setCountdown(4); // 4-second countdown before playing next
+    }
+  }, [isAutoplay, upNextVideos]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      setCountdown(null);
+      if (upNextVideos.length > 0) {
+        onSelectVideo(upNextVideos[0]);
+      }
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, upNextVideos, onSelectVideo]);
 
   const handleLike = () => {
     if (isLiked) {
@@ -132,6 +163,7 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
               title={video.title}
               channelName={video.channel.name}
               thumbnail={video.thumbnail}
+              onEnded={handleVideoEnded}
             />
           </div>
 
@@ -431,8 +463,69 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
 
         {/* Right Column: Related Videos sidebar (402px) */}
         <div className="w-full lg:w-[402px] shrink-0 space-y-3">
+          {/* Autoplay Banner when Video Ends */}
+          {countdown !== null && upNextVideos.length > 0 && (
+            <div className="rounded-xl bg-[#1c2e4a] border border-[#3ea6ff]/50 p-3.5 flex items-center justify-between text-white animate-fade-in shadow-xl">
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#3ea6ff] font-bold text-black text-sm animate-pulse">
+                  {countdown}
+                </div>
+                <div className="truncate">
+                  <div className="text-[11px] text-[#3ea6ff] font-semibold uppercase tracking-wider">
+                    Playing next in {countdown}s
+                  </div>
+                  <div className="text-xs font-medium truncate text-white">
+                    {upNextVideos[0].title}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setCountdown(null)}
+                  className="rounded-full px-2.5 py-1 text-xs font-medium text-neutral-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setCountdown(null);
+                    onSelectVideo(upNextVideos[0]);
+                  }}
+                  className="rounded-full bg-[#3ea6ff] px-3 py-1 text-xs font-bold text-black hover:bg-[#65b8ff] cursor-pointer"
+                >
+                  Play now
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Up Next Header & Autoplay Toggle */}
+          <div className="flex items-center justify-between pb-0.5">
+            <span className="text-sm font-semibold text-white">Up next</span>
+            <div
+              onClick={() => setIsAutoplay(!isAutoplay)}
+              className="flex items-center gap-2 cursor-pointer select-none group"
+              title={isAutoplay ? 'Autoplay is on' : 'Autoplay is off'}
+            >
+              <span className="text-xs text-[#aaaaaa] group-hover:text-white transition-colors">
+                Autoplay
+              </span>
+              <div
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ${
+                  isAutoplay ? 'bg-[#3ea6ff]' : 'bg-[#555555]'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-black shadow-md transition duration-200 ease-in-out ${
+                    isAutoplay ? 'translate-x-[18px] bg-black' : 'translate-x-1 bg-white'
+                  }`}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Related Categories Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             {relatedCategories.map((cat) => (
               <button
                 key={cat}

@@ -31,6 +31,8 @@ type SidebarProps = {
   activeCategory: string;
   onSelectCategory: (cat: string) => void;
   onGoHome: () => void;
+  onOpenHistory?: () => void;
+  isHistoryActive?: boolean;
   isWatchView: boolean;
   isGuest?: boolean;
 };
@@ -42,19 +44,23 @@ export default function Sidebar({
   activeCategory,
   onSelectCategory,
   onGoHome,
+  onOpenHistory,
+  isHistoryActive = false,
   isWatchView,
   isGuest = true,
 }: SidebarProps) {
+  const handleHistoryAction = onOpenHistory || onGoHome;
+
   const mainNav = [
-    { label: 'Home', icon: HomeIcon, action: onGoHome, active: activeCategory === 'All' && !isWatchView },
+    { label: 'Home', icon: HomeIcon, action: onGoHome, active: activeCategory === 'All' && !isWatchView && !isHistoryActive },
     { label: 'Shorts', icon: ShortsIcon, action: () => onSelectCategory('Lo-fi'), active: false },
     ...(!isGuest ? [{ label: 'Subscriptions', icon: SubscriptionsIcon, action: () => onSelectCategory('Music'), active: false }] : []),
   ];
 
   const youNav = [
-    { label: 'History', icon: HistoryIcon, action: onGoHome },
-    { label: 'Playlists', icon: PlaylistIcon, action: onGoHome },
-    { label: 'Watch Later', icon: WatchLaterIcon, action: () => onSelectCategory('Coding') },
+    { label: 'History', icon: HistoryIcon, action: handleHistoryAction, active: isHistoryActive },
+    { label: 'Playlists', icon: PlaylistIcon, action: onGoHome, active: false },
+    { label: 'Watch Later', icon: WatchLaterIcon, action: () => onSelectCategory('Coding'), active: false },
   ];
 
   const exploreNav = [
@@ -125,7 +131,9 @@ export default function Sidebar({
                   item.action();
                   onCloseMobile();
                 }}
-                className="flex w-full items-center gap-6 rounded-10px px-3 h-10 text-[14px] text-[#f1f1f1] hover:bg-[#272727]"
+                className={`flex w-full items-center gap-6 rounded-10px px-3 h-10 text-[14px] transition-colors ${
+                  item.active ? 'bg-[#272727] font-semibold text-white' : 'text-[#f1f1f1] hover:bg-[#272727]'
+                }`}
               >
                 <item.icon className="h-6 w-6" />
                 <span>{item.label}</span>
@@ -244,7 +252,9 @@ export default function Sidebar({
           <button
             key={item.label}
             onClick={item.action}
-            className="flex w-full items-center gap-6 rounded-10px px-3 h-10 text-[14px] text-[#f1f1f1] hover:bg-[#272727] cursor-pointer transition-colors"
+            className={`flex w-full items-center gap-6 rounded-10px px-3 h-10 text-[14px] transition-colors cursor-pointer ${
+              item.active ? 'bg-[#272727] font-semibold text-white' : 'text-[#f1f1f1] hover:bg-[#272727]'
+            }`}
           >
             <item.icon className="h-6 w-6" />
             <span>{item.label}</span>

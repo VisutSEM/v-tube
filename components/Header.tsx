@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   MenuIcon,
   YouTubeLogo,
@@ -13,41 +13,126 @@ import {
   HelpIcon,
   FeedbackIcon,
   GuestAvatarIcon,
+  HistoryIcon,
 } from './Icons';
 
 type HeaderProps = {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onSearchSubmit: (e: React.FormEvent) => void;
+  onExecuteSearch?: (q: string) => void;
   onClearSearch: () => void;
   onToggleSidebar: () => void;
   onGoHome: () => void;
+  onOpenHistory?: () => void;
 };
 
 export default function Header({
   searchQuery,
   onSearchChange,
   onSearchSubmit,
+  onExecuteSearch,
   onClearSearch,
   onToggleSidebar,
   onGoHome,
+  onOpenHistory,
 }: HeaderProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMicActive, setIsMicActive] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
 
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
+  // Fetch search suggestions with debounce
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/suggestions?q=${encodeURIComponent(searchQuery.trim())}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.suggestions && data.suggestions.length > 0) {
+            setSuggestions(data.suggestions);
+            setShowSuggestions(true);
+            setSelectedSuggestionIndex(-1);
+          } else {
+            setSuggestions([]);
+            setShowSuggestions(false);
+          }
+        }
+      } catch (err) {
+        // Ignore network errors
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Click outside search suggestions & profile menu
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
         setIsProfileMenuOpen(false);
+      }
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleSelectSuggestion = useCallback(
+    (sug: string) => {
+      onSearchChange(sug);
+      setShowSuggestions(false);
+      if (onExecuteSearch) {
+        onExecuteSearch(sug);
+      }
+    },
+    [onSearchChange, onExecuteSearch]
+  );
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) =>
+        prev < suggestions.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex((prev) =>
+        prev > 0 ? prev - 1 : suggestions.length - 1
+      );
+    } else if (e.key === 'Enter') {
+      if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.length) {
+        e.preventDefault();
+        handleSelectSuggestion(suggestions[selectedSuggestionIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
 
   const handleMicClick = () => {
     setIsMicActive(true);
@@ -76,9 +161,10 @@ export default function Header({
         </button>
       </div>
 
-      {/* Center: Search input + Voice button */}
+      {/* Center: Search input + Live Suggestions + Voice button */}
       <div
-        className={`flex-1 items-center justify-center max-w-[732px] px-2 sm:px-4 ${
+        ref={searchContainerRef}
+        className={`relative flex-1 items-center justify-center max-w-[732px] px-2 sm:px-4 ${
           isMobileSearchOpen ? 'flex' : 'hidden sm:flex'
         }`}
       >
@@ -91,7 +177,7 @@ export default function Header({
           </button>
         )}
 
-        <form onSubmit={onSearchSubmit} className="flex w-full items-center">
+        <form onSubmit={onSearchSubmit} className="relative flex w-full items-center">
           <div
             className={`flex w-full items-center rounded-l-full border bg-[#121212] px-4 h-10 transition-colors ${
               isSearchFocused
@@ -106,9 +192,13 @@ export default function Header({
               type="text"
               placeholder="Search"
               value={searchQuery}
-              onFocus={() => setIsSearchFocused(true)}
+              onFocus={() => {
+                setIsSearchFocused(true);
+                if (suggestions.length > 0) setShowSuggestions(true);
+              }}
               onBlur={() => setIsSearchFocused(false)}
               onChange={(e) => onSearchChange(e.target.value)}
+              onKeyDown={handleKeyDown}
               className="w-full bg-transparent text-[16px] text-[#f1f1f1] placeholder-[#888888] focus:outline-none"
             />
             {searchQuery && (
@@ -129,6 +219,29 @@ export default function Header({
           >
             <SearchIcon className="h-5 w-5 text-[#f1f1f1]" />
           </button>
+
+          {/* Autocomplete Search Suggestions Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute left-0 right-16 top-11 z-50 overflow-hidden rounded-2xl bg-[#212121] py-3 text-[#f1f1f1] shadow-2xl border border-[#383838] animate-fade-in">
+              {suggestions.map((sug, index) => (
+                <div
+                  key={sug}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelectSuggestion(sug);
+                  }}
+                  className={`flex items-center gap-3.5 px-4 py-2 cursor-pointer text-[15px] transition-colors ${
+                    index === selectedSuggestionIndex
+                      ? 'bg-[#383838] text-white font-medium'
+                      : 'hover:bg-[#2e2e2e] text-[#e5e5e5]'
+                  }`}
+                >
+                  <SearchIcon className="h-4 w-4 text-[#aaaaaa] shrink-0" />
+                  <span className="truncate">{sug}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </form>
 
         <button
@@ -152,6 +265,18 @@ export default function Header({
         >
           <SearchIcon className="h-5 w-5" />
         </button>
+
+        {/* History quick button */}
+        {onOpenHistory && (
+          <button
+            onClick={onOpenHistory}
+            title="Watch History"
+            className="flex items-center gap-1.5 rounded-full bg-[#272727] hover:bg-[#3f3f3f] h-9 px-3 text-[13px] font-medium text-[#f1f1f1] transition-colors cursor-pointer"
+          >
+            <HistoryIcon className="h-4 w-4 text-[#3ea6ff]" />
+            <span className="hidden md:inline">History</span>
+          </button>
+        )}
 
         {/* Create button */}
         <button
@@ -200,6 +325,18 @@ export default function Header({
               </div>
 
               <div className="py-2 border-b border-[#3e3e3e] text-[14px]">
+                {onOpenHistory && (
+                  <div
+                    onClick={() => {
+                      onOpenHistory();
+                      setIsProfileMenuOpen(false);
+                    }}
+                    className="px-4 py-2 hover:bg-[#383838] cursor-pointer flex items-center gap-3 text-white"
+                  >
+                    <HistoryIcon className="h-5 w-5 text-[#3ea6ff]" />
+                    <span>Watch history</span>
+                  </div>
+                )}
                 <div className="px-4 py-2 hover:bg-[#383838] cursor-pointer flex items-center justify-between text-[#3ea6ff] font-medium">
                   <span>Sign in</span>
                   <span className="text-xs bg-[#3ea6ff]/10 text-[#3ea6ff] px-2 py-0.5 rounded-full">Free</span>
