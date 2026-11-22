@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Video, Comment } from '@/types';
 import { addToWatchHistory } from '@/lib/history';
+import { VIDEOS } from '@/data/videos';
 import YouTubePlayer from './YouTubePlayer';
 import {
   CheckBadgeIcon,
@@ -39,6 +40,13 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
   const [showBackgroundHelp, setShowBackgroundHelp] = useState(false);
   const [isAutoplay, setIsAutoplay] = useState(true);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [showAllComments, setShowAllComments] = useState(false);
+
+  // Reset state whenever current video changes
+  useEffect(() => {
+    setShowAllComments(false);
+    setCountdown(null);
+  }, [video.id]);
 
   // Automatically record video into Watch History
   useEffect(() => {
@@ -71,23 +79,37 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
     };
   }, [video.id, video.comments]);
 
-  // Filter related videos: exclude current video
-  const upNextVideos = allVideos.filter((v) => v.id !== video.id);
+  // Filter related videos: exclude current video, with curated fallback to ensure queue is never empty
+  const upNextVideos = useMemo(() => {
+    const filtered = allVideos.filter((v) => v.id !== video.id);
+    if (filtered.length > 0) return filtered;
+    return VIDEOS.filter((v) => v.id !== video.id);
+  }, [allVideos, video.id]);
+
+  const onSelectVideoRef = useRef(onSelectVideo);
+  useEffect(() => {
+    onSelectVideoRef.current = onSelectVideo;
+  }, [onSelectVideo]);
+
+  const nextVideoRef = useRef<Video | null>(null);
+  nextVideoRef.current = upNextVideos[0] || null;
 
   // Handle Autoplay when current video finishes
   const handleVideoEnded = useCallback(() => {
-    if (isAutoplay && upNextVideos.length > 0) {
-      setCountdown(4); // 4-second countdown before playing next
-    }
-  }, [isAutoplay, upNextVideos]);
+    if (!isAutoplay) return;
+    const next = nextVideoRef.current;
+    if (!next) return;
+    // Fast 2-second countdown before transitioning
+    setCountdown(2);
+  }, [isAutoplay]);
 
   // Countdown timer effect
   useEffect(() => {
     if (countdown === null) return;
     if (countdown <= 0) {
       setCountdown(null);
-      if (upNextVideos.length > 0) {
-        onSelectVideo(upNextVideos[0]);
+      if (nextVideoRef.current) {
+        onSelectVideoRef.current(nextVideoRef.current);
       }
       return;
     }
@@ -95,7 +117,7 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
       setCountdown((prev) => (prev !== null ? prev - 1 : null));
     }, 1000);
     return () => clearTimeout(timer);
-  }, [countdown, upNextVideos, onSelectVideo]);
+  }, [countdown]);
 
   const handleLike = () => {
     if (isLiked) {
@@ -421,9 +443,9 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
               </div>
             </form>
 
-            {/* Comments List */}
+            {/* Comments List (Show 1 comment by default + Show more button) */}
             <div className="space-y-5">
-              {comments.map((comment) => (
+              {(showAllComments ? comments : comments.slice(0, 1)).map((comment) => (
                 <div key={comment.id} className="flex gap-4">
                   <img
                     src={comment.avatar}
@@ -457,6 +479,23 @@ export default function WatchView({ video, allVideos, onSelectVideo }: WatchView
                   </div>
                 </div>
               ))}
+
+              {/* Show more / Show less button */}
+              {comments.length > 1 && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllComments(!showAllComments)}
+                    className="flex items-center gap-2 rounded-full bg-[#272727] hover:bg-[#383838] px-4 py-2 text-[13px] font-medium text-white transition-colors cursor-pointer"
+                  >
+                    {showAllComments ? (
+                      <span>Show less</span>
+                    ) : (
+                      <span>Show more comments ({comments.length - 1} more)</span>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </section>
         </div>

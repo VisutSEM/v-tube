@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 
 type Props = {
@@ -22,6 +22,44 @@ export default function YouTubePlayer({
 }: Props) {
   const [hasError, setHasError] = useState(false);
   const playerRef = useRef<any>(null);
+  const onEndedRef = useRef(onEnded);
+  const hasEndedRef = useRef(false);
+
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
+
+  // Reset ended flag when videoId changes
+  useEffect(() => {
+    hasEndedRef.current = false;
+  }, [videoId]);
+
+  const handleEnd = useCallback(() => {
+    if (hasEndedRef.current) return;
+    hasEndedRef.current = true;
+    if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'paused';
+    }
+    onEndedRef.current?.();
+  }, []);
+
+  // Periodic safety check: if player time reaches near end of video duration
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (hasEndedRef.current || !playerRef.current) return;
+      try {
+        const currentTime = playerRef.current.getCurrentTime?.();
+        const duration = playerRef.current.getDuration?.();
+        if (duration && duration > 0 && currentTime && currentTime >= duration - 0.6) {
+          handleEnd();
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [handleEnd]);
 
   // Sync MediaSession API with mobile lock-screen & notification controls
   useEffect(() => {
@@ -98,7 +136,7 @@ export default function YouTubePlayer({
     }
 
     if (event.data === 0) {
-      onEnded?.();
+      handleEnd();
     }
   };
 
@@ -126,6 +164,7 @@ export default function YouTubePlayer({
           iframeClassName="w-full h-full"
           onReady={onPlayerReady}
           onStateChange={onPlayerStateChange}
+          onEnd={handleEnd}
           onError={() => setHasError(true)}
         />
       ) : (
